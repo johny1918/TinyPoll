@@ -1,3 +1,8 @@
-fn main() {
-    println!("Hello, world!");
+
+mod config;
+
+#[tokio::main]
+async fn main() -> Result<(), sqlx::Error>{
+    config::init_db().await?;
+    Ok(())
 }
