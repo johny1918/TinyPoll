@@ -1,22 +1,14 @@
-use axum::http::StatusCode;
-use axum::Router;
-use axum::routing::get;
 
-mod config;
 mod models;
+pub use routes::start_server;
+mod routes;
+mod db;
 
 #[tokio::main]
-async fn main() -> Result<(), sqlx::Error>{
-    config::init_db().await?;
+async fn main() -> std::io::Result<()>{
 
-    //Start a server
-    let app: Router = Router::new()
-        .route("/health", get(health));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
-    axum::serve(listener, app.into_make_service()).await?;
+    let _ = start_server()
+        .await
+        .expect("Failed to start server");
     Ok(())
-}
-
-async fn health() -> StatusCode {
-    StatusCode::OK
 }
