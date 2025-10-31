@@ -1,11 +1,10 @@
 use crate::db;
 mod polls;
 
-use crate::routes::polls::create_poll;
+use crate::routes::polls::{create_poll, get_poll};
 use axum::Router;
 use axum::routing::{get, post};
 pub use polls::get_polls;
-pub use polls::test_poll_route;
 use sqlx::PgPool;
 
 pub async fn start_server() -> Result<(), sqlx::Error> {
@@ -17,7 +16,7 @@ pub async fn start_server() -> Result<(), sqlx::Error> {
 
 async fn server_paths(pool: PgPool) -> Router {
     let app: Router = Router::new()
-        .route("/polls", get(test_poll_route))
+        .route("/polls/{id}", get(get_poll))
         .route("/polls/all", get(get_polls))
         .route("/polls/create", post(create_poll))
         .with_state(pool);
