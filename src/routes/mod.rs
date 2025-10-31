@@ -1,14 +1,14 @@
 use crate::db;
 mod polls;
 
-pub use polls::test_poll_route;
-pub use polls::get_polls;
-use axum::{Router};
-use sqlx::PgPool;
-use axum::routing::{get, post};
 use crate::routes::polls::create_poll;
+use axum::Router;
+use axum::routing::{get, post};
+pub use polls::get_polls;
+pub use polls::test_poll_route;
+use sqlx::PgPool;
 
-pub async fn start_server() -> Result<(), sqlx::Error>{
+pub async fn start_server() -> Result<(), sqlx::Error> {
     let pool = db::init_db().await?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
     axum::serve(listener, server_paths(pool).await).await?;
