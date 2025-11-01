@@ -8,3 +8,9 @@ pub struct PollOption {
     pub option_text: String,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NewPollOption {
+    pub poll_id: i32,
+    pub option_text: String,
+}

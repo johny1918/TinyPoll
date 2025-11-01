@@ -1,6 +1,9 @@
-
 use crate::models::poll::{NewPoll, Poll};
-use axum::{Json, extract::{ State, Path}};
+use crate::models::poll_option::{PollOption, NewPollOption};
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 use sqlx::PgPool;
 
 pub async fn get_polls(State(pool): State<PgPool>) -> Json<Vec<Poll>> {
@@ -22,7 +25,8 @@ pub async fn get_poll(State(pool): State<PgPool>, Path(id): Path<i32>) -> Json<O
         id
     )
     .fetch_optional(&pool)
-    .await.expect("Failed to fetch poll");
+    .await
+    .expect("Failed to fetch poll");
 
     Json(poll)
 }
@@ -39,4 +43,31 @@ pub async fn create_poll(State(pool): State<PgPool>, Json(new_poll): Json<NewPol
     .expect("Failed to insert poll");
 
     Json(poll)
+}
+
+pub async fn get_all_options(State(pool): State<PgPool>) -> Json<Vec<PollOption>> {
+    let rows = sqlx::query_as::<_, PollOption>("SELECT * FROM poll_options ORDER BY id DESC")
+        .fetch_all(&pool)
+        .await
+        .unwrap_or_default();
+    Json(rows)
+}
+
+pub async fn create_options(
+    State(pool): State<PgPool>,
+    Json(po): Json<NewPollOption>,
+) -> Json<PollOption> {
+    let option = sqlx::query_as::<_, PollOption>(
+        "INSERT INTO poll_options
+        (poll_id, option_text)
+        VALUES ($1, $2)
+        RETURNING *",
+    )
+        .bind(po.poll_id)
+        .bind(po.option_text)
+        .fetch_one(&pool)
+        .await
+        .expect("Fail to insert option");
+
+    Json(option)
 }
