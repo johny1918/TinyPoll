@@ -71,3 +71,12 @@ pub async fn create_options(
 
     Json(option)
 }
+
+pub async fn get_all_options_by_poll_id(State(pool): State<PgPool>, Path(id): Path<i32>) -> Json<Vec<PollOption>> {
+    let rows = sqlx::query_as::<_, PollOption>(
+        "SELECT * FROM poll_options WHERE poll_id = $1 ORDER BY id DESC",
+    ).bind(id)
+        .fetch_all(&pool)
+        .await.unwrap_or_default();
+    Json(rows)
+}
