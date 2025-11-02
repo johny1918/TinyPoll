@@ -1,5 +1,5 @@
 use crate::models::poll::{NewPoll, Poll};
-use crate::models::poll_option::{PollOption, NewPollOption};
+use crate::models::poll_option::{NewPollOption, PollOption};
 use axum::{
     Json,
     extract::{Path, State},
@@ -63,20 +63,25 @@ pub async fn create_options(
         VALUES ($1, $2)
         RETURNING *",
     )
-        .bind(po.poll_id)
-        .bind(po.option_text)
-        .fetch_one(&pool)
-        .await
-        .expect("Fail to insert option");
+    .bind(po.poll_id)
+    .bind(po.option_text)
+    .fetch_one(&pool)
+    .await
+    .expect("Fail to insert option");
 
     Json(option)
 }
 
-pub async fn get_all_options_by_poll_id(State(pool): State<PgPool>, Path(id): Path<i32>) -> Json<Vec<PollOption>> {
+pub async fn get_all_options_by_poll_id(
+    State(pool): State<PgPool>,
+    Path(id): Path<i32>,
+) -> Json<Vec<PollOption>> {
     let rows = sqlx::query_as::<_, PollOption>(
         "SELECT * FROM poll_options WHERE poll_id = $1 ORDER BY id DESC",
-    ).bind(id)
-        .fetch_all(&pool)
-        .await.unwrap_or_default();
+    )
+    .bind(id)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
     Json(rows)
 }

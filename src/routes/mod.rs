@@ -1,7 +1,11 @@
 use crate::db;
 mod polls;
+mod vote;
 
-use crate::routes::polls::{create_options, create_poll, get_all_options, get_all_options_by_poll_id, get_poll, get_polls};
+use crate::routes::polls::{
+    create_options, create_poll, get_all_options, get_all_options_by_poll_id, get_poll, get_polls,
+};
+use crate::routes::vote::create_vote;
 use axum::Router;
 use axum::routing::{get, post};
 use sqlx::PgPool;
@@ -21,6 +25,7 @@ async fn server_paths(pool: PgPool) -> Router {
         .route("/options/all", get(get_all_options))
         .route("/options/create", post(create_options))
         .route("/options/{id}", get(get_all_options_by_poll_id))
+        .route("/votes/create", post(create_vote))
         .with_state(pool);
     app
 }
