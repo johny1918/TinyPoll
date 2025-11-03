@@ -4,6 +4,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use serde_json::json;
 use sqlx::PgPool;
 
 pub async fn get_polls(State(pool): State<PgPool>) -> Json<Vec<Poll>> {
@@ -31,18 +32,32 @@ pub async fn get_poll(State(pool): State<PgPool>, Path(id): Path<i32>) -> Json<O
     Json(poll)
 }
 
-pub async fn create_poll(State(pool): State<PgPool>, Json(new_poll): Json<NewPoll>) -> Json<Poll> {
-    let poll = sqlx::query_as::<_, Poll>(
+pub async fn create_poll(
+    State(pool): State<PgPool>,
+    Json(new_poll): Json<NewPoll>,
+) -> Json<serde_json::Value> {
+    let result = sqlx::query_as::<_, Poll>(
         "INSERT INTO polls (question, created_at)
          VALUES ($1, NOW())
          RETURNING id, question, created_at",
     )
-    .bind(new_poll.question)
-    .fetch_one(&pool)
-    .await
-    .expect("Failed to insert poll");
+        .bind(new_poll.question)
+        .fetch_one(&pool)
+        .await;
 
-    Json(poll)
+    match result {
+        Ok(poll) => Json(json!({
+            "status": "success",
+            "poll": poll
+        })),
+        Err(e) => {
+            eprintln!("Database insert error: {:?}", e);
+            Json(json!({
+                "status": "error",
+                "message": format!("Failed to create poll: {:?}", e)
+            }))
+        }
+    }
 }
 
 pub async fn get_all_options(State(pool): State<PgPool>) -> Json<Vec<PollOption>> {

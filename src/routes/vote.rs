@@ -1,6 +1,7 @@
-use crate::models::vote::{NewVote, Vote};
-use axum::{Json, extract::State};
+use crate::models::vote::{NewVote, Vote, VoteResponse};
 use axum::extract::Path;
+use axum::http::StatusCode;
+use axum::{Json, extract::State};
 use serde_json::json;
 use sqlx::{Error, PgPool};
 
@@ -42,12 +43,55 @@ pub async fn create_vote(
     }
 }
 
-
-pub async fn get_votes_for_poll(State(pool): State<PgPool>, Path(poll_id): Path<i32> ) -> Json<Vec<Vote>> {
-    let result = sqlx::query_as::<_, Vote>("SELECT * FROM votes WHERE poll_id = $1 ORDER BY created_at DESC")
-        .bind(poll_id)
-        .fetch_all(&pool)
-        .await.unwrap_or_default();
+pub async fn get_votes_for_poll(
+    State(pool): State<PgPool>,
+    Path(poll_id): Path<i32>,
+) -> Json<Vec<Vote>> {
+    let result = sqlx::query_as::<_, Vote>(
+        "SELECT * FROM votes WHERE poll_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(poll_id)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
 
     Json(result)
+}
+
+pub async fn get_vote_responses(
+    State(pool): State<PgPool>,
+    Path(poll_id): Path<i32>,
+) -> Json<serde_json::Value> {
+    let result = sqlx::query_as::<_, VoteResponse>(
+        "SELECT o.id AS option_id,
+       o.option_text,
+       COUNT(v.id) AS vote_count
+        FROM poll_options o
+        LEFT JOIN votes v ON o.id = v.option_id
+        WHERE o.poll_id = $1
+        GROUP BY o.id, o.option_text
+        ORDER BY vote_count DESC
+        ",
+    )
+    .bind(poll_id)
+    .fetch_all(&pool)
+    .await;
+
+    match result {
+        Ok(vote) => {
+            let total_votes: i64 = vote.iter().map(|v| v.vote_count).sum();
+            Json(json!({
+                "status": "success",
+                "total_votes": total_votes,
+                "vote": vote
+            }))
+        }
+        Err(e) => {
+            eprintln!("Database error: {:?}", e);
+            Json(json!({
+                "status": "error",
+                "message": "Failed to fetch vote results."
+            }))
+        }
+    }
 }

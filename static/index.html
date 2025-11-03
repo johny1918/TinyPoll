@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TinyPoll</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h2 { margin-top: 30px; }
+        input, button { margin: 5px 0; padding: 5px; }
+        .poll { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+        .option { margin-left: 20px; }
+    </style>
+</head>
+<body>
+<h1>TinyPoll</h1>
+
+<!-- CREATE POLL -->
+<h2>Create Poll</h2>
+<input type="text" id="poll_question" placeholder="Poll question">
+<button onclick="createPoll()">Create Poll</button>
+<div id="poll_creation_status"></div>
+
+<!-- ADD OPTIONS -->
+<h2>Add Options to Poll</h2>
+<select id="poll_select_for_options"></select><br>
+<input type="text" id="option_text" placeholder="Option text">
+<button onclick="addOption()">Add Option</button>
+<div id="option_status"></div>
+
+<!-- VOTE -->
+<h2>Vote</h2>
+<select id="poll_select_for_vote"></select><br>
+<input type="text" id="voter_name" placeholder="Your name">
+<div id="vote_options"></div>
+<button onclick="submitVote()">Vote</button>
+<div id="vote_status"></div>
+
+<!-- RESULTS -->
+<h2>Results</h2>
+<select id="poll_select_for_results"></select>
+<div id="results"></div>
+
+<script>
+    // Define API base URL - adjust this if your server is on a different port
+    const apiBase = '';
+
+    // Fetch polls and populate selects
+    async function fetchPolls() {
+        try {
+            const res = await fetch('/polls/all');
+            const polls = await res.json();
+
+            const optionsForVote = document.getElementById('poll_select_for_vote');
+            const optionsForOptions = document.getElementById('poll_select_for_options');
+            const optionsForResults = document.getElementById('poll_select_for_results');
+
+            [optionsForVote, optionsForOptions, optionsForResults].forEach(sel => sel.innerHTML = '');
+
+            polls.forEach(poll => {
+                const opt = new Option(poll.question, poll.id);
+                optionsForVote.add(opt.cloneNode(true));
+                optionsForOptions.add(opt.cloneNode(true));
+                optionsForResults.add(opt.cloneNode(true));
+            });
+
+            // Load vote options for the first poll by default
+            if (polls.length > 0) {
+                loadVoteOptions();
+                showResults();
+            }
+        } catch (error) {
+            console.error('Error fetching polls:', error);
+        }
+    }
+
+    async function createPoll() {
+        const question = document.getElementById('poll_question').value.trim();
+        if (!question) return alert("Enter a poll question!");
+
+        try {
+            const res = await fetch(`${apiBase}/polls/create`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ question })
+            });
+
+            if (!res.ok) {
+                document.getElementById('poll_creation_status').innerText = "Failed to create poll.";
+                return;
+            }
+
+            const poll = await res.json();
+            document.getElementById('poll_creation_status').innerText = `Poll created! ID: ${poll.id}`;
+            document.getElementById('poll_question').value = '';
+            await fetchPolls(); // Refresh the poll lists
+        } catch (error) {
+            console.error('Error creating poll:', error);
+            document.getElementById('poll_creation_status').innerText = "Failed to create poll.";
+        }
+    }
+
+    async function addOption() {
+        const poll_id = parseInt(document.getElementById('poll_select_for_options').value);
+        const option_text = document.getElementById('option_text').value.trim();
+
+        if (!option_text) return alert('Enter option text!');
+        if (isNaN(poll_id)) return alert('Select a poll first!');
+
+        try {
+            const res = await fetch('/options/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ poll_id, option_text })
+            });
+
+            if (!res.ok) {
+                document.getElementById('option_status').innerText = 'Failed to add option.';
+                return;
+            }
+
+            const data = await res.json();
+            if (data.id) {
+                document.getElementById('option_status').innerText = 'Option added!';
+                document.getElementById('option_text').value = '';
+                loadVoteOptions(); // Refresh vote options
+            } else {
+                document.getElementById('option_status').innerText = 'Failed to add option.';
+            }
+        } catch (error) {
+            console.error('Error adding option:', error);
+            document.getElementById('option_status').innerText = 'Failed to add option.';
+        }
+    }
+
+    async function loadVoteOptions() {
+        const poll_id = parseInt(document.getElementById('poll_select_for_vote').value);
+        if (isNaN(poll_id)) return;
+
+        try {
+            const res = await fetch(`/options/${poll_id}`);
+            if (!res.ok) return;
+
+            const options = await res.json();
+            const container = document.getElementById('vote_options');
+            container.innerHTML = '';
+
+            options.forEach(opt => {
+                const div = document.createElement('div');
+                div.className = 'option';
+                div.innerHTML = `<input type="radio" name="poll_option" value="${opt.id}"> ${opt.option_text}`;
+                container.appendChild(div);
+            });
+        } catch (error) {
+            console.error('Error loading vote options:', error);
+        }
+    }
+
+    async function submitVote() {
+        const voter = document.getElementById('voter_name').value.trim();
+        if (!voter) return alert('Enter your name!');
+
+        const selectedOption = document.querySelector('input[name="poll_option"]:checked');
+        if (!selectedOption) return alert('Select an option!');
+
+        const option_id = parseInt(selectedOption.value);
+        const poll_id = parseInt(document.getElementById('poll_select_for_vote').value);
+
+        if (isNaN(option_id) || isNaN(poll_id)) {
+            alert('Invalid poll or option selection!');
+            return;
+        }
+
+        try {
+            const res = await fetch('/votes/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    poll_id,
+                    option_id,
+                    voter_identifier: voter
+                })
+            });
+
+            if (!res.ok) {
+                document.getElementById('vote_status').innerText = 'Failed to submit vote.';
+                return;
+            }
+
+            const data = await res.json();
+            if (data.id) {
+                document.getElementById('vote_status').innerText = 'Vote submitted!';
+                document.getElementById('voter_name').value = '';
+                // Clear selection
+                selectedOption.checked = false;
+                showResults(); // Refresh results
+            } else {
+                document.getElementById('vote_status').innerText = 'Failed to submit vote.';
+            }
+        } catch (error) {
+            console.error('Error submitting vote:', error);
+            document.getElementById('vote_status').innerText = 'Failed to submit vote.';
+        }
+    }
+
+    async function showResults() {
+        const poll_id = parseInt(document.getElementById('poll_select_for_results').value);
+        if (isNaN(poll_id)) return;
+
+        try {
+            const res = await fetch(`${apiBase}/polls/${poll_id}/results`);
+            if (!res.ok) {
+                console.error('Failed to fetch results');
+                return;
+            }
+
+            const data = await res.json();
+            const resultsDiv = document.getElementById('results');
+
+            if (!data.vote || data.vote.length === 0) {
+                resultsDiv.innerHTML = '<p>No votes yet for this poll.</p>';
+                return;
+            }
+
+            let html = '<h3>Results:</h3>';
+            data.vote.forEach(opt => {
+                html += `<div>${opt.option_text}: ${opt.vote_count} votes</div>`;
+            });
+
+            resultsDiv.innerHTML = html;
+        } catch (error) {
+            console.error('Error showing results:', error);
+            document.getElementById('results').innerHTML = '<p>Error loading results.</p>';
+        }
+    }
+
+    // Event listeners for select changes
+    document.getElementById('poll_select_for_vote').addEventListener('change', loadVoteOptions);
+    document.getElementById('poll_select_for_results').addEventListener('change', showResults);
+
+    // Initialize the page
+    fetchPolls();
+</script>
+</body>
+</html>

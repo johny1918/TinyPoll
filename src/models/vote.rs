@@ -18,3 +18,10 @@ pub struct NewVote {
     pub voter_identifier: String,
     pub user_id: Option<i32>,
 }
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct VoteResponse {
+    pub option_id: i32,
+    pub option_text: String,
+    pub vote_count: i64,
+}
