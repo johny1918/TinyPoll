@@ -1,5 +1,6 @@
 use crate::models::vote::{NewVote, Vote};
 use axum::{Json, extract::State};
+use axum::extract::Path;
 use serde_json::json;
 use sqlx::{Error, PgPool};
 
@@ -39,4 +40,14 @@ pub async fn create_vote(
             }))
         }
     }
+}
+
+
+pub async fn get_votes_for_poll(State(pool): State<PgPool>, Path(poll_id): Path<i32> ) -> Json<Vec<Vote>> {
+    let result = sqlx::query_as::<_, Vote>("SELECT * FROM votes WHERE poll_id = $1 ORDER BY created_at DESC")
+        .bind(poll_id)
+        .fetch_all(&pool)
+        .await.unwrap_or_default();
+
+    Json(result)
 }
